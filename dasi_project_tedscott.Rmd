@@ -1,0 +1,197 @@
+---
+title: "Bicycle Commuters versus the Weather in Seattle, 2014"
+date: "4.19.2015"
+output:
+  html_document:
+    theme: cerulean
+---
+
+<!-- For more info on RMarkdown see http://rmarkdown.rstudio.com/ -->
+
+<!-- Enter the code required to load your data in the space below. The data will be loaded but the line of code won't show up in your write up (echo=FALSE) in order to save space-->
+```{r echo=FALSE}
+counts_weather<-read.csv("c:/r-data/counts_weather.csv")
+source("http://bit.ly/dasi_inference")
+```
+
+<!-- In the remainder of the document, add R code chunks as needed -->
+
+### Introduction:
+
+It is said that bicycle commuters (like myself) in Seattle will commute by bicycle to both work and leisure activities on even the worst weather days, out of concern for the enviroment, and out of toughness. But is this really true?
+
+Using 2014 bicycle counter data from the Seattle Fremont Bridge, a popular crossing connecting northern urban and suburban neighborhoods with the downtown area, do we see a noticable decline in the number of bicycle commuters on days with precipitation (classified as Rainy or Snowy) versus those without precipitation, ignoring other factors?
+
+### Data:
+
+
+<b>Data Sources</b>
+2014 WeatherUnderground data for Seattle: <http://www.wunderground.com/history/airport/KSEA/2014/1/1/CustomHistory.html?dayend=1&monthend=1&yearend=2015&req_city=&req_state=&req_statename=&reqdb.zip=&reqdb.magic=&reqdb.wmo=&MR=1>  
+Bicycle Commuters by Day on the Fremont Bridge filtered to 2014 from data.seattle.gov: <https://data.seattle.gov/Transportation/Fremont-Bridge-Daily-Bicycle-Counts/eytj-7qg9>  
+
+<b>How were the data collected?</b>  
+<i>Weather data</i>  
+Recorded at a single weather station in Seattle near SeaTac Airport.  
+From <http://www.wunderground.com/personal-weather-station/dashboard?ID=KWASEATA4&scrollTo=historyTable#> the description of the weather stations is:
+Weather Station ID: KWASEATA4
+Station Name: McMicken Heights
+Latitude / Longitude: N 47 ° 27 ' 23 '', W 122 ° 17 ' 4 ''
+Elevation: 483
+City: SeaTac
+State: WA
+Hardware: Ambient Weather WS-2090 (Wireless)
+Software: weewx-3.0.1
+
+
+<i>Bicycle Counts</i>
+According to the dataset description on data.seattle.gov, The Fremont Bridge Bicycle Counter records the number of bikes that cross the bridge using the pedestrian/bicycle pathways. Inductive loops on the east and west pathways count the passing of bicycles regardless of travel direction. The data consists of a date/time field: Date, east pathway count field: Fremont Bridge NB, and west pathway count field: Fremont Bridge SB. The count fields represent the total bicycles detected during the specified one hour period. Direction of travel is not specified, but in general most traffic in the Fremont Bridge NB field is travelling northbound and most traffic in the Fremont Bridge SB field is travelling southbound. The data is then summed to give an overall daily count based on the hourly counts.  
+
+
+<b>What are the Cases?</b>
+<i>Count of bicycle commuters</i> in integer values per day, combining North & South directions  
+<i>Weather Conditions</i> as string (e.g. NA (meaning clear conditions), Fog, Rain, Fog-Rain, Snow, Snow-Rain, Rain-Thunderstorm, etc)  
+
+<b>What types of variables?</b>
+Bicycle counts - numerical variable, discrete (no fractional bicyclists)  
+Weather Conditions - categorical  
+
+<b>What type of study is this?</b>
+This is an observational study based on past data (2014) that employed sensors to observe weather conditions and the number of bicyclists, the values of which were completely out of my control.
+
+<b>What is the population of interest and how can the results be generalized, if at all?</b>
+The population of interest is those who use bicycles to commute, which is a subset of all commuters. It can not be generalized to all commuters, as not all use or own bicycles, or would consider commuting on them. Also, a given bicycle commuter counted may have also commuted via another method on the same day, and hence it cannot be generalized to all bicycle commuters.
+
+<b>From this study, can we determine causality?</b>
+No, as it is an observational study. This type of study cannot be used to establish causality, only correlation.
+
+
+<b>A Note about Data Cleaning</b>
+I imported CSV files from each data source, and using Microsoft Excel, I removed columns down to Date, Weather Conditions, and a Sum of the Northbound and Southbound bicycle traffic on the Fremont bridge. This subset of the data is then read into Rstudio for analysis.
+
+The initial weather conditions data has many levels, such as Fog-Rain, Thunderstorm, etc, but I will classify all days with precipitaion of any kind as "Precip" and those without as "No Precip".  
+
+
+Here are the first 20 rows without re-leveling, and the levels:
+```{r}
+head(counts_weather,20)
+levels(counts_weather$Conditions)
+```
+
+  
+<a name="releveled-data"></a>
+And here are the new levels and first 30 rows (January 2014)
+```{r}
+
+levels(counts_weather$Conditions)=c("No Precip","No Precip","Precip","Precip","Precip","Precip","Precip","Precip","Precip")
+head(counts_weather,30)
+```
+
+
+
+### Exploratory data analysis:
+<b>
+A boxplot of the counts of commuters in different weather conditions shows a fairly distinct difference in the median and IQR of bicycle counts on days with precipitation and those without:</b>
+```{r}
+boxplot(counts_weather$Total.Bicycle.Count ~ counts_weather$Conditions,main=" Fremont Bridge Bicycle commuters by Weather Conditions",ylab="Count of bicycles",xlab="weather conditions")
+```
+
+This difference in median count is also evident in the summary stats for the data set, where both the median and mean are significantly higher (~800, ~1100, respectively) on days with no precipitation (No Precip):
+
+```{r}
+by(counts_weather$Total.Bicycle.Count,counts_weather$Conditions,summary)
+
+```
+
+
+A check for normality in the Count vs Conditions data shows that, while we have no reason to expect or require normality in the distribution of daily counts of bicyclists, the two data sets (Precip vs No Precip) show a roughly normal distribution in the data for days with Precip and a somewhat bimodal distribution on days with No Precip.
+```{r}
+par(mfrow=c(2,2))
+hist(subset(counts_weather$Total.Bicycle.Count,counts_weather$Conditions=="Precip"),breaks=10,main="Days with Precip",xlab="count")
+hist(subset(counts_weather$Total.Bicycle.Count,counts_weather$Conditions=="No Precip"),breaks=10,main="No Precip",xlab="count")
+qqnorm(subset(counts_weather$Total.Bicycle.Count,counts_weather$Conditions=="Precip"),main="Precip")
+qqline(subset(counts_weather$Total.Bicycle.Count,counts_weather$Conditions=="Precip"))
+qqnorm(subset(counts_weather$Total.Bicycle.Count,counts_weather$Conditions=="No Precip"),main="No Precip")
+qqline(subset(counts_weather$Total.Bicycle.Count,counts_weather$Conditions=="No Precip"))
+```
+
+
+<b>Any inital conclusions from exploring the data?</b>
+As the boxplot above shows, it appears that there may be a statistically significant decline in the number of bicycle commuters who travel across the Fremont Bridge on a day with precipitation.
+
+
+### Inference:
+
+I employed two hypothesis tests to determine if there was a significant decrease in each of the <b>mean</b> and <b>median</b> number of bicycle commuters on the Fremont Bridge in Seattle on days in 2014 with precipitation versus days with no precipitation, specifically, $\mu$~Precip~ - $\mu$~NoPrecip~ and median~Precip~ - median~NoPrecip. I chose to look at both the mean and median as the distribution of bicycle counts were not nearly normal on in both categories, Precip and No Precip. For the difference in means, I used the theoretical calculation for inference and for the median I will use simulation via a randomization distribution (which is a requirement of the inference function used in the course). For each comparison (difference in means and medians), I also include a 95% confidence interval.
+
+#### Difference in Means $\mu$~Precip~ - $\mu$~NoPrecip~
+
+##### Hypothesis Test
+<b>Null Hypothesis</b> H~0~: $\mu$~Precip~ - $\mu$~NoPrecip~ = 0  
+<b>Alternative</b> H~A~: $\mu$~Precip~ - $\mu$~NoPrecip~ < 0  
+
+Check conditions:  
+<i>Sample Size</i> There are more than 30 commuters per day  
+<i>Independence</i>  
+Bicycle count: Each day could count the same rider twice, but I have no basis to divide my data in half as I do not identify the commuters, nor can I be sure they commuted home via the same route. I will assume independence of each day's count of bicyclists with the caveat that I may be double counting, and that each day may include the same commuter as on previous or following days.  
+
+Weather: I assume each day's weather is not dependent on the previous day's weather, which may not be entirely true as rainy days are often followed by rainy days.  
+<i>Sample Distributions</i> In the exploratory data analysis section, above, the sample distributions do not show strong skew.  
+
+```{r}
+source("http://bit.ly/dasi_inference")
+inference(y = counts_weather$Total.Bicycle.Count, x = counts_weather$Conditions, est = "mean", type = "ht", null = 0, alternative = "less", method = "theoretical", order = c("Precip","No Precip"), eda_plot = FALSE, inf_plot=FALSE)
+```
+
+##### 95% Confidence Interval
+```{r}
+inference(y = counts_weather$Total.Bicycle.Count, x = counts_weather$Conditions, est = "mean", type = "ci", method = "theoretical", order = c("Precip","No Precip"), boot_method="se", eda_plot = FALSE)
+```
+
+#### Results for $\mu$~Precip~ - $\mu$~NoPrecip~
+The p-value for the significance of the difference of mean number of bicycle commuters on days with precipitation versus those with no precipitation is 0 to 4 signficant digits. Therefore, there is a statistically signifcant drop in the average number of bicycle commuters on days with precipitation. 
+
+From the confidence interval calculation, I am 95% confident that the difference $\mu$~Precip~ - $\mu$~NoPrecip~ is in the interval ( -1364.8494 , -862.5141 ), which says that, on average, there are  roughly 1000 fewer bicycle commuters on days with precipitation.
+
+
+#### Difference in Medians median~Precip~ - median~NoPrecip~
+
+##### Hypothesis Test
+<b>Null Hypothesis</b> H~0~: median~Precip~ - median~NoPrecip~ = 0  
+<b>Alternative</b> H~A~: median~Precip~ - median~NoPrecip~ < 0  
+
+Check conditions:  
+<i>Sample Size</i> Same as above for mean.  
+<i>Independence</i> Same as above for mean.  
+<i>Sample Distributions</i> Same as above for mean.
+
+```{r}
+source("http://bit.ly/dasi_inference")
+inference(y = counts_weather$Total.Bicycle.Count, x = counts_weather$Conditions, est = "median", type = "ht", null = 0, alternative = "less", method = "simulation", order = c("Precip","No Precip"), eda_plot = FALSE)
+```
+
+##### 95% Confidence Interval
+```{r}
+inference(y = counts_weather$Total.Bicycle.Count, x = counts_weather$Conditions, est = "median", type = "ci", method = "simulation", order = c("Precip","No Precip"), boot_method="se", eda_plot = FALSE)
+```
+
+#### Results for median~Precip~ - median~NoPrecip~
+The p-value for the significance of the difference of median number of bicycle commuters on days with precipitation versus those with no precipitation is 0 to 4 signficant digits. Therefore, there is a statistically signifcant drop in the median number of bicycle commuters on days with precipitation. 
+
+From the confidence interval calculation, I am 95% confident that the difference median~Precip~ - median~NoPrecip~ is in the interval ( -1504.7467 , -321.9341 ), which agrees with the difference of means test above in that there are signficantly fewer bicycle commuters on days with precipitation
+
+### Conclusion:
+
+Both tests for the difference in parameters $\mu$~Precip~ - $\mu$~NoPrecip~ and median~Precip~ - median~NoPrecip~ show a statisticall significant drop of ~1000 bicycle commuters on a day with precipitation versus a dry day crossing the Fremont Bridge in Seattle. This result contradicts the widely held belief that Seattle bicycle commuters ignore the weather and travel via bicycle just as if the day were dry. From this, I learned that since I commute by bicycle rain or shine, I may be an outlier in this data.
+
+It would be very interesting to expand this research question to understand what other factors come into play - perhaps on a cold rainy day we see a decline, but on a wet and warm (> 60$\deg$ F) day there is little or no drop. It would also be interesting to include data from other area in the Seattle region to see if this decline is more or less prominent on the East Side in Belleuve, Redmond and Kirkland.
+
+In this research project I learned a ton. I enjoyed the process of finding my own data sets, but then had to learn how to clean up the data in order to make it usable for my research. 
+
+### References:
+
+##### Data
+2014 WeatherUnderground data for Seattle: <http://www.wunderground.com/history/airport/KSEA/2014/1/1/CustomHistory.html?dayend=1&monthend=1&yearend=2015&req_city=&req_state=&req_statename=&reqdb.zip=&reqdb.magic=&reqdb.wmo=&MR=1>  
+Bicycle Commuters by Day on the Fremont Bridge filtered to 2014 from data.seattle.gov: <https://data.seattle.gov/Transportation/Fremont-Bridge-Daily-Bicycle-Counts/eytj-7qg9> 
+
+### Appendix:
+For the first page of the data set, please see the Data section above, specifically the <a href="#releveled-data">re-leveled first 30 rows of data.</a>
