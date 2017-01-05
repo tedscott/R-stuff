@@ -2,7 +2,7 @@
 # sample processing of a CSV file of student data
 # with some plotting and basic stats analysis
 #
-# ted scott (scott.ted.j@gmail.com)
+# ted scott 
 # 
 # 12.12.2016
 #
